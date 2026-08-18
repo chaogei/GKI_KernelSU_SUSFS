@@ -44,7 +44,7 @@ runs:
     run: |
       sed -i 's/check_defconfig//' ./common/build.config.gki
       if [ -f "build/build.sh" ]; then
-        BUILD_GKI_ARTIFACTS="" \
+        BUILD_GKI_ARTIFACTS=1 \
         BUILD_GKI_CERTIFICATION_TOOLS=0 \
         BUILD_SYSTEM_DLKM=0 \
         SKIP_VENDOR_BOOT=1 \
@@ -87,8 +87,14 @@ runs:
         echo "Found Image at /home/runner/out/dist/Image"
         if [[ ${{ inputs.bypass }} == "true" ]]; then
           cp "/home/runner/out/dist/Image" "${{ github.workspace }}/AnyKernel3/Bypass-Image"
+          if [ -f "/home/runner/out/dist/boot.img" ]; then
+            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/AnyKernel3/Bypass-boot.img"
+          fi
         else
           cp "/home/runner/out/dist/Image" "${{ github.workspace }}/AnyKernel3/Image"
+          if [ -f "/home/runner/out/dist/boot.img" ]; then
+            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/AnyKernel3/boot.img"
+          fi
         fi
         exit 0
       fi
