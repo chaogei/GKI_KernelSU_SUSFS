@@ -46,7 +46,7 @@ on:
           - NOMOUNT
           - NONE
           - FULL
-        default: KSUN+SUSFS
+        default: KSUN+SUSFS+BBG+NET+NOMOUNT
       ksu_branch:
         description: "KernelSU branch or commit (empty = latest dev-susfs branch tip)"
         type: string
@@ -672,13 +672,19 @@ jobs:
         pattern: '*-AnyKernel3'
         merge-multiple: false
 
+    - name: Download Boot Images
+      uses: actions/download-artifact@v7
+      with:
+        path: release-assets
+        pattern: '*-BootIMG'
+        merge-multiple: false
+
     - name: Download NoMount metamodule
       uses: actions/download-artifact@v7
       with:
         path: release-assets
         pattern: '*NoMount-Metamodule'
         merge-multiple: false
-        if-no-files-found: ignore
 
     - name: Zip AnyKernel3 for Release
       run: |
