@@ -30,8 +30,9 @@ runs:
           CONFIG_NETFILTER_XT_SET=y
           CONFIG_NETFILTER_XT_TARGET_LOG=y
           CONFIG_NETFILTER_XT_MATCH_RECENT=y
-          CONFIG_IP6_NF_NAT=y
-          CONFIG_IP6_NF_TARGET_MASQUERADE=y
+          # CONFIG_IP6_NF_NAT and CONFIG_IP6_NF_TARGET_MASQUERADE removed:
+          # Android 13 GKI 5.15 FCM 7 requires these to be disabled.
+          # Enabling them causes VintfObject.verifyWithoutAvb() failure.
 
     - name: Enable TCP Congestion Control Configs
       uses: ./.github/actions/set-kernel-config
