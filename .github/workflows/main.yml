@@ -45,7 +45,7 @@ on:
           - NOMOUNT
           - NONE
           - FULL
-        default: FULL
+        default: KSUN+SUSFS
       ksu_branch:
         description: "KernelSU branch or commit (empty = latest dev-susfs branch tip)"
         type: string
