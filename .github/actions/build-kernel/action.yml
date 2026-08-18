@@ -7,6 +7,10 @@ inputs:
   version:
     description: 'Kernel config version (e.g., android14-6.1)'
     required: true
+  file_name:
+    description: 'Output file name prefix (e.g., 5.15.41-android13-2022-06)'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -85,16 +89,18 @@ runs:
         fi
       if [ -f "/home/runner/out/dist/Image" ]; then
         echo "Found Image at /home/runner/out/dist/Image"
+        PREFIX="${{ inputs.file_name }}"
+        [ -n "$PREFIX" ] && PREFIX="${PREFIX}-" || PREFIX=""
         mkdir -p "${{ github.workspace }}/boot-images"
         if [[ ${{ inputs.bypass }} == "true" ]]; then
           cp "/home/runner/out/dist/Image" "${{ github.workspace }}/AnyKernel3/Bypass-Image"
           if [ -f "/home/runner/out/dist/boot.img" ]; then
-            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/boot-images/Bypass-boot.img"
+            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/boot-images/${PREFIX}Bypass-boot.img"
           fi
         else
           cp "/home/runner/out/dist/Image" "${{ github.workspace }}/AnyKernel3/Image"
           if [ -f "/home/runner/out/dist/boot.img" ]; then
-            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/boot-images/boot.img"
+            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/boot-images/${PREFIX}boot.img"
           fi
         fi
         exit 0

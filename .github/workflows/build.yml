@@ -411,6 +411,7 @@ jobs:
       with:
         version: ${{ inputs.version }}
         bypass: false
+        file_name: ${{ steps.extract.outputs.file_name }}
 
     - name: Get Cache Stats
       uses: ./.github/actions/cache-stats
@@ -448,6 +449,7 @@ jobs:
       with:
         bypass: true
         version: ${{ inputs.version }}
+        file_name: ${{ steps.extract.outputs.file_name }}
 
     - name: 📋 Consolidated Build Summary
       if: ${{ always() }}
