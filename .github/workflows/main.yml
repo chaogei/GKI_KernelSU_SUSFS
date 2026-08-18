@@ -571,6 +571,7 @@ jobs:
 
     - name: Extract KernelSU Version Info
       id: ksu_version
+      continue-on-error: true
       run: |
         set -euo pipefail
 
@@ -673,6 +674,7 @@ jobs:
         merge-multiple: false
 
     - name: Download Boot Images
+      continue-on-error: true
       uses: actions/download-artifact@v7
       with:
         path: release-assets
@@ -680,6 +682,7 @@ jobs:
         merge-multiple: false
 
     - name: Download NoMount metamodule
+      continue-on-error: true
       uses: actions/download-artifact@v7
       with:
         path: release-assets
