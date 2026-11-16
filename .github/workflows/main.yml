@@ -1747,6 +1747,14 @@ jobs:
           fi
           echo "NoMount metamodule zip OK"
 
+      - name: Download Boot Images
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          path: release-assets/boot-images
+          pattern: "*-BootIMG"
+          merge-multiple: true
+
       - name: Create Release
         env:
           GH_TOKEN: ${{ github.token }}
