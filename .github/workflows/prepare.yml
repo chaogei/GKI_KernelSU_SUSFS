@@ -131,6 +131,7 @@ jobs:
               include: (
                 [
                   $targets[] as $item
+                  | select($item.disabled != true)
                   | {
                       version: $cfg.version,
                       android_version: $version_parts[0],
@@ -142,6 +143,7 @@ jobs:
                 ]
                 + (if $requested_variant == "" then [
                     $targets[] as $item
+                    | select($item.disabled != true)
                     | select($item.variant != null)
                     | {
                         version: $cfg.version,
