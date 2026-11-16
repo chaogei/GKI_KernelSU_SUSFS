@@ -67,7 +67,7 @@ runs:
           # a handful of actions for a multi-GB restore/save. A build that can be
           # reproduced only when a cache happens to be warm is worse than a slow
           # build, so the tree now compiles with plain clang every time.
-          BUILD_GKI_ARTIFACTS="" \
+          BUILD_GKI_ARTIFACTS=1 \
           BUILD_GKI_CERTIFICATION_TOOLS=0 \
           BUILD_SYSTEM_DLKM=0 \
           SKIP_VENDOR_BOOT=1 \
@@ -193,6 +193,11 @@ runs:
         if [ -f "/home/runner/out/dist/Image" ]; then
           echo "Found Image at /home/runner/out/dist/Image"
           cp "/home/runner/out/dist/Image" "${{ github.workspace }}/AnyKernel3/Image"
+          if [ -f "/home/runner/out/dist/boot.img" ]; then
+            mkdir -p "${{ github.workspace }}/boot-images"
+            cp "/home/runner/out/dist/boot.img" "${{ github.workspace }}/boot-images/boot.img"
+            echo "Collected boot.img"
+          fi
           exit 0
         fi
 

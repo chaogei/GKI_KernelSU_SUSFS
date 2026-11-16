@@ -539,6 +539,22 @@ jobs:
           if-no-files-found: ignore
           compression-level: 9
 
+      - name: Rename boot.img with version prefix
+        shell: bash
+        run: |
+          if [ -f "${{ github.workspace }}/boot-images/boot.img" ]; then
+            mv "${{ github.workspace }}/boot-images/boot.img" \
+               "${{ github.workspace }}/boot-images/${{ steps.extract.outputs.file_name }}-boot.img"
+          fi
+
+      - name: Upload Boot Images
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.extract.outputs.file_name }}-BootIMG
+          path: ${{ github.workspace }}/boot-images/**
+          if-no-files-found: ignore
+          compression-level: 0
+
       - name: Write Build-verified only artifact metadata
         if: success() && inputs.root_flavor != '' && inputs.root_flavor != 'none'
         uses: ./.github/actions/build-metadata
