@@ -1680,8 +1680,10 @@ jobs:
             [ -z "$name" ] && continue
             if [ ! -d "release-assets/${name}" ]; then
               echo "Re-fetching missed artifact: $name"
-              if ! gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?name=${name}" \
-                --jq '.[0].archive_download_url' | xargs -r curl -fsSL -o "release-assets/${name}.zip"; then
+              artifact_id=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?name=${name}" \
+                --jq '.artifacts[0].id // empty' || true)
+              if [ -z "$artifact_id" ] \
+                || ! gh api "repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip" > "release-assets/${name}.zip" 2>/dev/null; then
                 echo "ERROR: failed to re-fetch $name" >&2
                 missing=$((missing + 1))
               else
@@ -1706,9 +1708,8 @@ jobs:
       - name: Download NoMount metamodule
         uses: actions/download-artifact@v7
         with:
-          path: release-assets
-          pattern: "*NoMount-Metamodule"
-          merge-multiple: false
+          name: NoMount-Metamodule
+          path: release-assets/nomount-raw
 
       - name: Zip AnyKernel3 for Release
         run: |
@@ -1726,15 +1727,12 @@ jobs:
       - name: Zip NoMount Metamodule for Release
         run: |
           set -e
-          shopt -s nullglob
-
-          for dir in release-assets/*NoMount-Metamodule; do
-            zip_name="${dir}.zip"
-            rm -f "$zip_name"
-            cd "$dir"
-            zip -r -q -9 "../$(basename "$zip_name")" .
+          if [ -d release-assets/nomount-raw ]; then
+            rm -f release-assets/NoMount-Metamodule.zip
+            cd release-assets/nomount-raw
+            zip -r -q -9 ../NoMount-Metamodule.zip .
             cd - >/dev/null
-          done
+          fi
 
       - name: Verify NoMount metamodule zip
         if: inputs.use_nomount
