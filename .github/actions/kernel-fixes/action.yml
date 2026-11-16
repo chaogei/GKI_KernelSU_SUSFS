@@ -91,17 +91,23 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        DEFCONFIG="arch/arm64/configs/gki_defconfig"
-        # FCM 7 requires CONFIG_L2TP=y. The default GKI config has it as =m.
-        # Replace any existing =m with =y, or add if missing.
-        if grep -q 'CONFIG_L2TP=m' "$DEFCONFIG"; then
-          sed -i 's/CONFIG_L2TP=m/CONFIG_L2TP=y/' "$DEFCONFIG"
-          echo "L2TP_FIX=replaced_m_with_y"
-        elif grep -q 'CONFIG_L2TP=y' "$DEFCONFIG"; then
-          echo "L2TP_FIX=already_y"
+        # FCM 7 requires CONFIG_L2TP=y but Kconfig resolves it to =m.
+        # Modifying defconfig alone doesn't work because the tristate
+        # gets overridden during make defconfig. Instead, inject a
+        # POST_DEFCONFIG_CMDS hook into build.config.gki that runs
+        # scripts/config after defconfig is applied but before compilation.
+        BCONFIG="build.config.gki"
+        if [ -f "$BCONFIG" ]; then
+          if ! grep -q 'CONFIG_L2TP' "$BCONFIG"; then
+            echo '' >> "$BCONFIG"
+            echo '# FCM 7: force CONFIG_L2TP=y (tristate, Kconfig defaults to =m)' >> "$BCONFIG"
+            echo 'POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} && scripts/config --file ${OUT_DIR}/.config -e L2TP"' >> "$BCONFIG"
+            echo "L2TP_FIX=post_defconfig_hook"
+          else
+            echo "L2TP_FIX=already_present"
+          fi
         else
-          echo 'CONFIG_L2TP=y' >> "$DEFCONFIG"
-          echo "L2TP_FIX=appended"
+          echo "L2TP_FIX=no_build_config"
         fi
         echo "L2TP_FIX=${L2TP_FIX:-applied}" >> "$GITHUB_ENV"
 
