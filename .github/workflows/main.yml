@@ -1755,6 +1755,56 @@ jobs:
           pattern: "*-BootIMG"
           merge-multiple: true
 
+      - name: Verify Android 13 Release Asset Pairs
+        if: inputs.kernel_build_version == '5.15.x-android13'
+        env:
+          SELECTED_PATCH_LEVEL: ${{ inputs.os_patch_level }}
+          ROOT_MATRIX_JSON: ${{ needs.resolve-sources.outputs.root_matrix }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          archives=(release-assets/5.15.*-android13-*-AnyKernel3.zip)
+          if [ "${#archives[@]}" -eq 0 ]; then
+            echo "ERROR: no Android 13 AnyKernel3 packages found." >&2
+            exit 1
+          fi
+          for archive in "${archives[@]}"; do
+            prefix="$(basename "${archive%-AnyKernel3.zip}")"
+            image="release-assets/boot-images/${prefix}-boot.img"
+            if [ ! -s "$image" ]; then
+              echo "ERROR: boot.img missing for $archive" >&2
+              exit 1
+            fi
+            unzip -tq "$archive"
+            entries="$(unzip -Z1 "$archive")"
+            for entry in Image anykernel.sh META-INF/com/google/android/update-binary; do
+              if ! grep -qxF "$entry" <<< "$entries"; then
+                echo "ERROR: $archive is missing $entry" >&2
+                exit 1
+              fi
+            done
+          done
+          if [ "$SELECTED_PATCH_LEVEL" = "41" ]; then
+            variant_count="$(jq -er 'length | select(. > 0)' <<< "$ROOT_MATRIX_JSON")"
+            expected=$((6 * variant_count))
+            if [ "${#archives[@]}" -ne "$expected" ]; then
+              echo "ERROR: expected $expected 5.15.41 AnyKernel3 packages, got ${#archives[@]}." >&2
+              exit 1
+            fi
+            while IFS= read -r variant; do
+              suffix=""
+              if [ -n "$variant" ] && [ "$variant" != "Normal" ]; then suffix="-${variant}"; fi
+              if [ "${{ inputs.page_size }}" = "16k" ]; then suffix="${suffix}-16k"; fi
+              for month in 06 07 08 09 10 11; do
+                archive="release-assets/5.15.41-android13-2022-${month}${suffix}-AnyKernel3.zip"
+                if [ ! -s "$archive" ]; then
+                  echo "ERROR: required monthly package missing: $archive" >&2
+                  exit 1
+                fi
+              done
+            done < <(jq -r '.[].variant' <<< "$ROOT_MATRIX_JSON")
+          fi
+
       - name: Create Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1777,10 +1827,14 @@ jobs:
           # or a concurrent run that computed the same tag). Refresh its notes
           # so a re-run heals stale bodies instead of leaving them behind.
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists — refreshing notes and uploading into it."
+            if [ "$(gh release view "$TAG_NAME" --json isDraft --jq '.isDraft')" != "true" ]; then
+              echo "ERROR: refusing to modify already published release $TAG_NAME." >&2
+              exit 1
+            fi
+            echo "Draft $TAG_NAME already exists — refreshing notes and uploading into it."
             gh release edit "$TAG_NAME" --notes-file release_body.md
           else
-            create_args=(--title "$RELEASE_TITLE" --notes-file release_body.md)
+            create_args=(--draft --target "${{ github.sha }}" --title "$RELEASE_TITLE" --notes-file release_body.md)
             if [ "$IS_PRERELEASE" = "true" ]; then
               create_args+=(--prerelease)
             fi
@@ -1808,7 +1862,21 @@ jobs:
               failed=1
             fi
           done
-          exit "$failed"
+          if [ "$failed" -ne 0 ]; then
+            exit "$failed"
+          fi
+          uploaded_assets="$(gh release view "$TAG_NAME" --json assets --jq '.assets')"
+          for f in "${files[@]}"; do
+            if ! jq -e --arg name "$(basename "$f")" --argjson size "$(stat -c %s "$f")" 'any(.[]; .name == $name and .size == $size)' <<< "$uploaded_assets" >/dev/null; then
+              echo "ERROR: uploaded release asset missing or size mismatch: $f" >&2
+              exit 1
+            fi
+          done
+          publish_args=(--draft=false --prerelease="$IS_PRERELEASE")
+          if [ "$IS_PRERELEASE" = "false" ]; then
+            publish_args+=(--latest)
+          fi
+          gh release edit "$TAG_NAME" "${publish_args[@]}"
 
   notes-preview:
     if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && vars.ENABLE_SCHEDULED_BUILDS == 'true'))
@@ -1840,6 +1908,7 @@ jobs:
           USE_CACHE: ${{ inputs.use_cache || (github.event_name == 'schedule' && true) || false }}
           PAGE_SIZE: ${{ inputs.page_size || '4k' }}
           KERNEL_BUILD_VERSION: ${{ inputs.kernel_build_version || 'All' }}
+          OS_PATCH_LEVEL: ${{ inputs.os_patch_level }}
           NOMOUNT_COMMIT: ${{ needs.resolve-sources.outputs.nomount_commit }}
           KSU_COMMIT: ${{ needs.resolve-sources.outputs.ksu_commit }}
           BAKASU_COMMIT: ${{ needs.resolve-sources.outputs.bakasu_commit }}
