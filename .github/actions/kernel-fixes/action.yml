@@ -91,23 +91,17 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        # FCM 7 requires CONFIG_L2TP=y but Kconfig resolves it to =m.
-        # Modifying defconfig alone doesn't work because the tristate
-        # gets overridden during make defconfig. Instead, inject a
-        # POST_DEFCONFIG_CMDS hook into build.config.gki that runs
-        # scripts/config after defconfig is applied but before compilation.
-        BCONFIG="build.config.gki"
-        if [ -f "$BCONFIG" ]; then
-          if ! grep -q 'CONFIG_L2TP' "$BCONFIG"; then
-            echo '' >> "$BCONFIG"
-            echo '# FCM 7: force CONFIG_L2TP=y (tristate, Kconfig defaults to =m)' >> "$BCONFIG"
-            echo 'POST_DEFCONFIG_CMDS="sed -i '"'"'s/CONFIG_L2TP=m/CONFIG_L2TP=y/'"'"' ${OUT_DIR}/.config ${OUT_DIR}/common/.config 2>/dev/null; true"' >> "$BCONFIG"
-            echo "L2TP_FIX=post_defconfig_hook"
-          else
-            echo "L2TP_FIX=already_present"
-          fi
+        # FCM 7 requires CONFIG_L2TP=y. Kconfig defines it as tristate,
+        # so make defconfig resolves it to =m. POST_DEFCONFIG_CMDS has
+        # quoting/PATH issues with build.sh. The most reliable fix:
+        # change the Kconfig type from tristate to bool so it can only
+        # be y or n, never m.
+        KCONFIG="net/l2tp/Kconfig"
+        if [ -f "$KCONFIG" ] && grep -q 'tristate.*Layer Two Tunneling' "$KCONFIG"; then
+          sed -i 's/tristate "Layer Two Tunneling Protocol (L2TP)"/bool "Layer Two Tunneling Protocol (L2TP)"/' "$KCONFIG"
+          echo "L2TP_FIX=kconfig_tristate_to_bool"
         else
-          echo "L2TP_FIX=no_build_config"
+          echo "L2TP_FIX=no_change_needed"
         fi
         echo "L2TP_FIX=${L2TP_FIX:-applied}" >> "$GITHUB_ENV"
 
