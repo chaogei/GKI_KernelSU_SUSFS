@@ -3,19 +3,23 @@
   "include": [
     {
       "sublevel": "41",
-      "date": "2022-06"
+      "date": "2022-06",
+      "disabled": true
     },
     {
       "sublevel": "41",
-      "date": "2022-07"
+      "date": "2022-07",
+      "disabled": true
     },
     {
       "sublevel": "41",
-      "date": "2022-08"
+      "date": "2022-08",
+      "disabled": true
     },
     {
       "sublevel": "41",
-      "date": "2022-09"
+      "date": "2022-09",
+      "disabled": true
     },
     {
       "sublevel": "41",
