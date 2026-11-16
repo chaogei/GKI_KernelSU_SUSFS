@@ -33,6 +33,8 @@ runs:
           # CONFIG_IP6_NF_NAT and CONFIG_IP6_NF_TARGET_MASQUERADE disabled:
           # Android 13 GKI 5.15 FCM 7 requires these to be off.
           # Enabling them causes VintfObject.verifyWithoutAvb() failure.
+          # FCM 7 requires CONFIG_L2TP=y (built-in, not module).
+          CONFIG_L2TP=y
 
     - name: Enable TCP Congestion Control Configs
       uses: ./.github/actions/set-kernel-config
