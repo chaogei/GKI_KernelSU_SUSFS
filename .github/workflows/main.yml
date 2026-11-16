@@ -1711,9 +1711,8 @@ jobs:
       - name: Download NoMount metamodule
         uses: actions/download-artifact@v7
         with:
+          name: NoMount-Metamodule
           path: release-assets
-          pattern: "*NoMount-Metamodule"
-          merge-multiple: false
 
       - name: Zip AnyKernel3 for Release
         run: |
