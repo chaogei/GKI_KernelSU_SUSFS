@@ -101,7 +101,7 @@ runs:
           if ! grep -q 'CONFIG_L2TP' "$BCONFIG"; then
             echo '' >> "$BCONFIG"
             echo '# FCM 7: force CONFIG_L2TP=y (tristate, Kconfig defaults to =m)' >> "$BCONFIG"
-            echo 'POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} && scripts/config --file ${OUT_DIR}/.config -e L2TP"' >> "$BCONFIG"
+            echo 'POST_DEFCONFIG_CMDS="scripts/config --file ${OUT_DIR}/.config -e L2TP"' >> "$BCONFIG"
             echo "L2TP_FIX=post_defconfig_hook"
           else
             echo "L2TP_FIX=already_present"
