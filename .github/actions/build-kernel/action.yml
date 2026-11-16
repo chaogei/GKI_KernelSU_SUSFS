@@ -17,9 +17,20 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Setup Kernel Configs
-      if: false
+    - name: Setup Android 13 FCM 7 Kernel Configs
+      if: inputs.version == 'android13-5.15'
       uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          CONFIG_IKCONFIG=y
+          CONFIG_IKCONFIG_PROC=y
+          CONFIG_L2TP=y
+          CONFIG_PPP=y
+          CONFIG_PPPOL2TP=y
+          CONFIG_PPP_BSDCOMP=y
+          CONFIG_PPP_DEFLATE=y
+          CONFIG_PPP_MPPE=y
+          CONFIG_PPTP=y
 
     # - name: Provide host ld from repo prebuilts
     #   shell: bash
@@ -69,7 +80,6 @@ runs:
           SKIP_CP_KERNEL_HDR=1 \
           OUT_DIR="/home/runner/out" \
           LTO=thin \
-          POST_DEFCONFIG_CMDS="( cd \${ROOT_DIR}/\${KERNEL_DIR} && sed -i 's/CONFIG_L2TP=m/CONFIG_L2TP=y/' \${OUT_DIR}/.config || true )" \
           BUILD_CONFIG=common/build.config.gki.aarch64 \
           CC="/usr/bin/ccache clang" \
           CXX="/usr/bin/ccache clang++" \
@@ -88,6 +98,47 @@ runs:
             --disk_cache=/home/runner/.cache/bazel \
             //common:kernel_aarch64/Image
         fi
+
+    - name: Verify Android 13 FCM 7 Configs and Embedded Config
+      if: inputs.version == 'android13-5.15'
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        set -euo pipefail
+        CONFIG_FILE=""
+        for candidate in /home/runner/out/common/.config /home/runner/out/.config; do
+          if [ -f "$candidate" ]; then CONFIG_FILE="$candidate"; break; fi
+        done
+        if [ -z "$CONFIG_FILE" ]; then
+          echo "ERROR: Android 13 FCM 7 verification requires the final build .config." >&2
+          exit 1
+        fi
+
+        for config in IKCONFIG IKCONFIG_PROC L2TP PPP PPPOL2TP PPP_BSDCOMP PPP_DEFLATE PPP_MPPE PPTP; do
+          if ! grep -qx "CONFIG_${config}=y" "$CONFIG_FILE"; then
+            echo "ERROR: Android 13 FCM 7 requires CONFIG_${config}=y in $CONFIG_FILE." >&2
+            exit 1
+          fi
+        done
+        for config in SYSVIPC IP6_NF_NAT IP6_NF_TARGET_MASQUERADE; do
+          if grep -qE "^CONFIG_${config}=(y|m)$" "$CONFIG_FILE"; then
+            echo "ERROR: Android 13 FCM 7 requires CONFIG_${config} to be disabled in $CONFIG_FILE." >&2
+            exit 1
+          fi
+        done
+
+        IMAGE="/home/runner/out/dist/Image"
+        if [ ! -s "$IMAGE" ]; then
+          echo "ERROR: built Image is missing; embedded config cannot be verified." >&2
+          exit 1
+        fi
+        EMBEDDED_CONFIG="$(bash common/scripts/extract-ikconfig "$IMAGE")"
+        BUILD_CONFIG="$(cat "$CONFIG_FILE")"
+        if [ "$EMBEDDED_CONFIG" != "$BUILD_CONFIG" ]; then
+          echo "ERROR: Image embedded config differs from $CONFIG_FILE; /proc/config.gz must report the real build config." >&2
+          exit 1
+        fi
+        echo "Android 13 FCM 7 configs verified; Image embeds the real build config."
 
     - name: 'Verify Page Size in Generated .config'
       shell: bash

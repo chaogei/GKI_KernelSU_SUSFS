@@ -189,7 +189,7 @@ jobs:
     # (with a live-download fallback if they get there too early).
     # Branches that call prepare.yml directly keep the default (true).
     needs: generate-matrix
-    if: inputs.produce_stock_configs != 'false'
+    if: inputs.produce_stock_configs && fromJson(needs.generate-matrix.outputs.matrix).include[0].version != 'android13-5.15'
     runs-on: ubuntu-24.04
     outputs:
       version_slug: ${{ steps.prep.outputs.version_slug }}
@@ -350,5 +350,5 @@ jobs:
       allow_version_mismatch: ${{ inputs.allow_version_mismatch }}
       use_cache: ${{ inputs.use_cache }}
       page_size: ${{ inputs.page_size }}
-      stock_config_artifact: stock-configs-${{ needs.generate-matrix.outputs.version_slug }}
+      stock_config_artifact: ${{ matrix.version != 'android13-5.15' && format('stock-configs-{0}', needs.generate-matrix.outputs.version_slug) || '' }}
     secrets: inherit

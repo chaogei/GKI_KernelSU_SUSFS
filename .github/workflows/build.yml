@@ -98,11 +98,18 @@ jobs:
     runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
+      - name: Reject Android 13 FCM 7 Incompatible Features
+        if: inputs.version == 'android13-5.15' && (contains(inputs.feature_set, 'DS') || inputs.feature_set == 'All')
+        shell: bash
+        run: |
+          echo "ERROR: android13-5.15 FCM 7 requires SYSVIPC disabled; DroidSpaces (DS/All) enables it. Re-run with DS disabled." >&2
+          exit 1
+
       - name: Checkout Repository
         uses: actions/checkout@v7
 
       - name: Download Prefetched Stock Configs
-        if: inputs.stock_config_artifact != ''
+        if: inputs.version != 'android13-5.15' && inputs.stock_config_artifact != ''
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
@@ -172,6 +179,7 @@ jobs:
           os_patch_level: ${{ inputs.os_patch_level }}
 
       - name: Spoof /proc/config.gz With Stock Config
+        if: inputs.version != 'android13-5.15'
         uses: ./.github/actions/stock-config
         with:
           version: ${{ inputs.version }}
