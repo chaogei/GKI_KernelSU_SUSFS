@@ -305,8 +305,10 @@ jobs:
           }
 
           # NoMount (pinned in verified mode, else dev tip)
-          # NoMount always tracks the dev tip - never pinned, in either mode.
-          emit nomount_commit "$(resolve_sha https://github.com/maxsteeel/nomount.git refs/heads/dev)"
+          # Pinned to 04af0552 (2026-11-01): the later userspace rewrite
+          # includes libc headers (unistd.h etc.) that break the freestanding
+          # zig cc build in nomount-metamodule.
+          emit nomount_commit "04af0552bb29c7cee1b78c3eea69d7ed98b80bf2"
 
           # KernelSU-Next manager - always built from the official repo's dev branch.
           # pershoot's fork is used only for the kernel SUSFS integration (root_commit below),
