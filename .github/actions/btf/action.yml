@@ -17,7 +17,7 @@ runs:
     - name: Apply libbpf feature-detection fix (android12-5.10)
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/common
-      if: ${{ inputs.version == 'android12-5.10' }}
+      if: inputs.version == 'android12-5.10'
       run: |
         set -euo pipefail
         patch -p1 -N < ${{ github.action_path }}/patches/0001-libbpf-remove-feature-detection-BTF.patch
@@ -25,7 +25,7 @@ runs:
     - name: Apply resolve_btfids linker-flag fix (android12-5.10)
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/common
-      if: ${{ inputs.version == 'android12-5.10' }}
+      if: inputs.version == 'android12-5.10'
       run: |
         set -euo pipefail
         patch -p1 -N < ${{ github.action_path }}/patches/0002-resolve_btfids-inherit-host-linker-flags.patch
@@ -33,7 +33,7 @@ runs:
     - name: Apply ANDROID_KABI_USE macro fix (android12-5.10, sublevel 43)
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/common
-      if: ${{ inputs.version == 'android12-5.10' && inputs.sublevel == '43' }}
+      if: inputs.version == 'android12-5.10' && inputs.sublevel == '43'
       run: |
         set -euo pipefail
         # Rework ANDROID_KABI_USE() to drop __UNIQUE_ID(android_kabi_hide).
@@ -46,7 +46,7 @@ runs:
     # - name: Apply xdp_buff BTF-emit fix (android12-5.10)
     #   shell: bash
     #   working-directory: ${{ github.workspace }}/kernel/common
-    #   if: ${{ inputs.version == 'android12-5.10' }}
+    #   if: inputs.version == 'android12-5.10'
     #   run: |
     #     set -euo pipefail
     #     # bpf_types.h references struct xdp_buff via
@@ -64,7 +64,7 @@ runs:
     # - name: Apply resolve_btfids ELF_T_WORD endian fix (android12-5.10)
     #   shell: bash
     #   working-directory: ${{ github.workspace }}/kernel/common
-    #   if: ${{ inputs.version == 'android12-5.10' }}
+    #   if: inputs.version == 'android12-5.10'
     #   run: |
     #     set -euo pipefail
     #     # Backport of upstream 61e8aeda9398 ("bpf: Fix libelf endian handling
@@ -85,7 +85,7 @@ runs:
     - name: Expose host dd for hermetic BTF generation (android12-5.10)
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/common
-      if: ${{ inputs.version == 'android12-5.10' }}
+      if: inputs.version == 'android12-5.10'
       run: |
         set -euo pipefail
         # The hermetic toolchain PATH (build.config.common -> HERMETIC_TOOLCHAIN=1)
@@ -101,7 +101,7 @@ runs:
     - name: Build and use pahole >=1.26 for hermetic BTF generation (android12-5.10)
       shell: bash
       working-directory: ${{ github.workspace }}/kernel
-      if: ${{ inputs.version == 'android12-5.10' }}
+      if: inputs.version == 'android12-5.10'
       run: |
         set -euo pipefail
         # android12-5.10 pins prebuilt pahole v1.19, which fails to recode the
@@ -121,7 +121,21 @@ runs:
         # old in-tree libbpf there only handles BTF kinds 1-15 and EINVALs on
         # enum64/decl_tag/type_tag. Newer sublevels pass --skip_encoding_btf_enum64
         # via pahole-flags.sh already; duplicate skip flags are harmless.
-        sudo apt-get install -y -qq cmake gcc libdw-dev libelf-dev zlib1g-dev dwarves
+        # Same dpkg-state recovery as setup-build-environment's BTF deps
+        # step: runner images occasionally ship with 'dpkg was interrupted'
+        # (exit 100), which dpkg --configure -a repairs. Retry up to 3x.
+        # Refresh lists first: images also ship stale lists and the Azure
+        # mirror 404s superseded versions (liblzma-dev), which no dpkg
+        # repair fixes.
+        sudo apt-get update -qq 2>&1 | tail -2 || true
+        ok=0
+        for attempt in 1 2 3; do
+          if sudo apt-get install -y -qq cmake gcc libdw-dev libelf-dev zlib1g-dev dwarves; then ok=1; break; fi
+          echo "apt install attempt $attempt/3 failed (likely dpkg state); repairing..." >&2
+          sudo dpkg --configure -a >/dev/null 2>&1 || true
+          sleep 5
+        done
+        [ "$ok" = "1" ] || { echo "ERROR: pahole build deps install failed after 3 attempts" >&2; exit 100; }
 
         # Build pahole 1.31 from source (acmel/dwarves). Deterministic, self-hosted.
         # Release build type is required: the default Debug sets -Wall -Werror, and
@@ -137,6 +151,13 @@ runs:
           rm -rf "$PAHOLE_SRC"
           sleep 5
         done
+        # Without this, exhausting all attempts falls through to cmake against
+        # a directory that does not exist, and a network outage is reported as
+        # a cmake failure.
+        if [ ! -d "$PAHOLE_SRC/.git" ]; then
+          echo "dwarves clone failed after 5 attempts." >&2
+          exit 1
+        fi
         mkdir -p "$PAHOLE_SRC/build"
         cd "$PAHOLE_SRC/build"
         cmake -D__LIB=lib -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release .. >/dev/null
@@ -167,3 +188,26 @@ runs:
       with:
         config_list: |
           CONFIG_DEBUG_INFO_BTF=y
+
+    - name: Enable eBPF Kernel Configs
+      uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          # eBPF support (Issue #176) - tiny safe programs that run in the kernel
+          # to trace/control events. Requires BTF above for CO-RE to work.
+          CONFIG_BPF_EVENTS=y
+          CONFIG_KPROBE_EVENTS=y
+          CONFIG_UPROBES=y
+          CONFIG_UPROBE_EVENTS=y
+
+    - name: Enable FUSE-BPF Kernel Config
+      uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          # FUSE-BPF support (Issue #211) - FUSE filesystems backed by eBPF
+          # programs. Sits on eBPF (Issue #176) above. Explicitly set the
+          # kconfig dependencies (FUSE_FS, BPF via BPF_SYSCALL) so kconfig can't
+          # silently drop FUSE_BPF on any branch whose gki_defconfig differs.
+          CONFIG_FUSE_FS=y
+          CONFIG_BPF_SYSCALL=y
+          CONFIG_FUSE_BPF=y

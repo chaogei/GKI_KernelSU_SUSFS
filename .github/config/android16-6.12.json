@@ -11,7 +11,8 @@
     },
     {
       "sublevel": "38",
-      "date": "2025-08"
+      "date": "2025-08",
+      "disabled": true
     },
     {
       "sublevel": "38",
@@ -28,6 +29,10 @@
     {
       "sublevel": "81",
       "date": "2026-06"
+    },
+    {
+      "sublevel": "92",
+      "date": "2026-09"
     },
     {
       "sublevel": "X",
