@@ -51,7 +51,7 @@ on:
         description: "KernelSU branch or commit (empty = latest dev-susfs branch tip)"
         type: string
         required: false
-        default: ""
+        default: "8f77a4019ab716369911aedb5817a454ba96e20f"
       susfs_commit_android12-5-10:
         description: "SUSFS commit for android12-5.10 (empty = latest branch tip)"
         type: string
@@ -66,7 +66,7 @@ on:
         description: "SUSFS commit for android13-5.15 (empty = latest branch tip)"
         type: string
         required: false
-        default: ""
+        default: "9fa194f94db076a4efb37cc5d6d48f9518f1170c"
       susfs_commit_android14-5-15:
         description: "SUSFS commit for android14-5.15 (empty = latest branch tip)"
         type: string
